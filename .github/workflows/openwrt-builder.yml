@@ -130,7 +130,7 @@ jobs:
           $GITHUB_WORKSPACE/$CUSTOM_DIY_P2_SH
 
       - name: ⌨️ SSH connection to Menuconfig
-        uses: mxschmitt/action-tmate@v3
+        uses: mxschmitt/action-tmate@main
         timeout-minutes: 15
 
       - name: 📤 Push config to main branch
