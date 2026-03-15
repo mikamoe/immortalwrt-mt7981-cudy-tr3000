@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: 🙌 Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
 
       - name: 🛠️ Init Environment
         run: |
@@ -130,7 +130,7 @@ jobs:
           $GITHUB_WORKSPACE/$CUSTOM_DIY_P2_SH
 
       - name: ⌨️ SSH connection to Menuconfig
-        uses: mxschmitt/action-tmate@main
+        uses: mxschmitt/action-tmate@v3
         timeout-minutes: 15
 
       - name: 📤 Push config to main branch
@@ -153,7 +153,7 @@ jobs:
 
     steps:
       - name: 🙌 Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
 
       - name: 🪠 Free Disk Space
         uses: jlumbroso/free-disk-space@main
@@ -184,7 +184,7 @@ jobs:
           ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
       - name: ⚙️ Setup ccache & DL cache
-        uses: actions/cache@main
+        uses: actions/cache@v4
         with:
           path: |
             /workdir/.ccache
@@ -283,7 +283,7 @@ jobs:
           echo "status=success" >> $GITHUB_OUTPUT
 
       - name: 🪄 Upload Binaries (Artifacts)
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@v4
         if: steps.compile.outputs.status == 'success'
         with:
           name: ImmortalWrt_Combined_${{ env.DEVICE_INPUT }}_${{ env.REPO_BRANCH }}
@@ -318,7 +318,7 @@ jobs:
           echo "status=success" >> $GITHUB_OUTPUT
 
       - name: 📤 Upload to Release
-        uses: softprops/action-gh-release@main
+        uses: softprops/action-gh-release@v2
         if: steps.tag.outputs.status == 'success'
         with:
           tag_name: ${{ steps.tag.outputs.release_tag }}
@@ -327,7 +327,7 @@ jobs:
           files: ${{ github.workspace }}/firmware_collection/*
 
       - name: 🚧 Delete old workflow runs
-        uses: Mattraks/delete-workflow-runs@main
+        uses: Mattraks/delete-workflow-runs@v2
         with:
           retain_days: 0
           keep_minimum_runs: 9
