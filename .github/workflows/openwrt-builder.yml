@@ -15,9 +15,10 @@ on:
         default: 'all'
         options:
           - '256M'
+          - '256M-Lite'
           - '128M'
           - '128M-Ubootmod'
-          - 'all' 
+          - 'all'
       repo:
         description: '指定源码仓库地址'
         required: true
@@ -83,9 +84,26 @@ jobs:
       - name: 🔧 Set device variables
         run: |
           case "$DEVICE_INPUT" in
-            "256M") echo "CONFIG_FILE=config/256m.config" >> $GITHUB_ENV ;;
-            "128M") echo "CONFIG_FILE=config/128m.config" >> $GITHUB_ENV ;;
-            "128M-Ubootmod") echo "CONFIG_FILE=config/128muboot.config" >> $GITHUB_ENV ;;
+            "256M")
+              echo "CONFIG_FILE=config/256m.config" >> $GITHUB_ENV
+              echo "CUSTOM_DIY_P1_SH=diy-part1.sh" >> $GITHUB_ENV
+              echo "CUSTOM_DIY_P2_SH=diy-part2.sh" >> $GITHUB_ENV
+              ;;
+            "256M-Lite")
+              echo "CONFIG_FILE=config/256m-lite.config" >> $GITHUB_ENV
+              echo "CUSTOM_DIY_P1_SH=lite/diy-part1.sh" >> $GITHUB_ENV
+              echo "CUSTOM_DIY_P2_SH=lite/diy-part2.sh" >> $GITHUB_ENV
+              ;;
+            "128M")
+              echo "CONFIG_FILE=config/128m.config" >> $GITHUB_ENV
+              echo "CUSTOM_DIY_P1_SH=diy-part1.sh" >> $GITHUB_ENV
+              echo "CUSTOM_DIY_P2_SH=diy-part2.sh" >> $GITHUB_ENV
+              ;;
+            "128M-Ubootmod")
+              echo "CONFIG_FILE=config/128muboot.config" >> $GITHUB_ENV
+              echo "CUSTOM_DIY_P1_SH=diy-part1.sh" >> $GITHUB_ENV
+              echo "CUSTOM_DIY_P2_SH=diy-part2.sh" >> $GITHUB_ENV
+              ;;
           esac
 
       - name: 👩‍💻 Copy previous config if exists
@@ -97,9 +115,9 @@ jobs:
       - name: ⚙️ Load custom feeds
         run: |
           [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
-          chmod +x $DIY_P1_SH
+          chmod +x $CUSTOM_DIY_P1_SH
           cd openwrt
-          $GITHUB_WORKSPACE/$DIY_P1_SH
+          $GITHUB_WORKSPACE/$CUSTOM_DIY_P1_SH
 
       - name: 🧬 Update & Install feeds
         run: cd openwrt && ./scripts/feeds update -a && ./scripts/feeds install -a
@@ -107,14 +125,14 @@ jobs:
       - name: 🧩 Load custom configuration
         run: |
           [ -e $CONFIG_FILE ] && cp -f $CONFIG_FILE openwrt/.config
-          chmod +x $DIY_P2_SH
+          chmod +x $CUSTOM_DIY_P2_SH
           cd openwrt
-          $GITHUB_WORKSPACE/$DIY_P2_SH
+          $GITHUB_WORKSPACE/$CUSTOM_DIY_P2_SH
 
       - name: ⌨️ SSH connection to Menuconfig
         uses: mxschmitt/action-tmate@v3
         timeout-minutes: 15
-          
+
       - name: 📤 Push config to main branch
         run: |
           SRC="/workdir/openwrt/.config"
@@ -132,7 +150,7 @@ jobs:
     needs: menuconfig
     if: always() && (needs.menuconfig.result == 'success' || needs.menuconfig.result == 'skipped')
     runs-on: ubuntu-22.04
-    
+
     steps:
       - name: 🙌 Checkout
         uses: actions/checkout@v4
@@ -182,64 +200,85 @@ jobs:
           ccache --set-config=compression=true
           ccache -z
 
-      - name: 🧬 Update & Install feeds
-        run: |
-          cd openwrt
-          [ -e $GITHUB_WORKSPACE/$FEEDS_CONF ] && mv $GITHUB_WORKSPACE/$FEEDS_CONF feeds.conf.default
-          chmod +x $GITHUB_WORKSPACE/$DIY_P1_SH
-          $GITHUB_WORKSPACE/$DIY_P1_SH
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
-          chmod +x $GITHUB_WORKSPACE/$DIY_P2_SH
-          $GITHUB_WORKSPACE/$DIY_P2_SH
-
       - name: 🔨 Multi-Device Compilation Loop
         id: compile
         run: |
           # 1. 确定编译列表
           if [ "${DEVICE_INPUT}" = "all" ]; then
-            DEVICES="256M 128M 128M-Ubootmod"
+            DEVICES="256M 256M-Lite 128M 128M-Ubootmod"
           else
             DEVICES="${DEVICE_INPUT}"
           fi
 
           mkdir -p $GITHUB_WORKSPACE/firmware_collection
-
           cd /workdir/openwrt
 
           for DEV in $DEVICES; do
             echo "::group::🚀 Building $DEV"
-            
-            # 2. 设置当前设备配置文件
+
+            # 2. 设置当前设备配置文件和自定义脚本
             case "$DEV" in
-              "256M") CONFIG="config/256m.config" ;;
-              "128M") CONFIG="config/128m.config" ;;
-              "128M-Ubootmod") CONFIG="config/128muboot.config" ;;
+              "256M")
+                CONFIG="config/256m.config"
+                CUR_DIY_P1="$GITHUB_WORKSPACE/diy-part1.sh"
+                CUR_DIY_P2="$GITHUB_WORKSPACE/diy-part2.sh"
+                ;;
+              "256M-Lite")
+                CONFIG="config/256m-lite.config"
+                CUR_DIY_P1="$GITHUB_WORKSPACE/lite/diy-part1.sh"
+                CUR_DIY_P2="$GITHUB_WORKSPACE/lite/diy-part2.sh"
+                ;;
+              "128M")
+                CONFIG="config/128m.config"
+                CUR_DIY_P1="$GITHUB_WORKSPACE/diy-part1.sh"
+                CUR_DIY_P2="$GITHUB_WORKSPACE/diy-part2.sh"
+                ;;
+              "128M-Ubootmod")
+                CONFIG="config/128muboot.config"
+                CUR_DIY_P1="$GITHUB_WORKSPACE/diy-part1.sh"
+                CUR_DIY_P2="$GITHUB_WORKSPACE/diy-part2.sh"
+                ;;
             esac
-            
+
             echo "Using Config: $CONFIG"
-            
-            # 3. 加载配置
-            cp -f $GITHUB_WORKSPACE/$CONFIG .config
-            
-            # 4. 刷新配置并下载
+            echo "Using DIY Part1: $CUR_DIY_P1"
+            echo "Using DIY Part2: $CUR_DIY_P2"
+
+            # 3. 每轮设备编译前恢复源码树到干净状态（保留 dl 缓存）
+            git -C /workdir/openwrt reset --hard
+            git -C /workdir/openwrt clean -fd
+
+            # 4. 重新加载 feeds 和自定义脚本
+            [ -e $GITHUB_WORKSPACE/$FEEDS_CONF ] && cp -f $GITHUB_WORKSPACE/$FEEDS_CONF feeds.conf.default
+            chmod +x "$CUR_DIY_P1"
+            "$CUR_DIY_P1"
+            ./scripts/feeds update -a
+            ./scripts/feeds install -a
+
+            # 5. 加载配置并执行第二阶段自定义
+            cp -f "$GITHUB_WORKSPACE/$CONFIG" .config
+            chmod +x "$CUR_DIY_P2"
+            "$CUR_DIY_P2"
+
+            # 6. 刷新配置并下载
             make defconfig
             make download -j$(nproc)
-            
-            # 5. 开始编译
-            # 使用 ccache 加速，并保留 Toolchain
+
+            # 7. 开始编译
             if ! make -j$(nproc) CC="ccache gcc" CXX="ccache g++"; then
               echo "⚠️ Multi-threaded failed, retrying single-threaded..."
               make -j1 V=s || exit 1
             fi
 
+            echo "📥 Collecting artifacts for $DEV"
+            find bin/targets/ -name "*sysupgrade.bin" | while read -r file; do
+              cp "$file" "$GITHUB_WORKSPACE/firmware_collection/${DEV}-$(basename "$file")"
+            done
+
             echo "✅ $DEV build finished."
             df -hT /workdir
             echo "::endgroup::"
           done
-
-          echo "📥 Collecting artifacts"
-          find bin/targets/ -name "*sysupgrade.bin" -exec cp {} $GITHUB_WORKSPACE/firmware_collection/ \;
 
           echo "status=success" >> $GITHUB_OUTPUT
 
