@@ -240,7 +240,7 @@ jobs:
 
           echo "📥 Collecting artifacts"
           find bin/targets/ -type f -name "*sysupgrade.bin" -exec cp {} $GITHUB_WORKSPACE/firmware_collection/ \;
-          find bin/packages/ -type f -name "luci-theme-*.ipk" -exec cp {} $GITHUB_WORKSPACE/firmware_collection/ \;
+          find bin/packages/ -type f -name "luci-theme-*.apk" -exec cp {} $GITHUB_WORKSPACE/firmware_collection/ \;
 
           echo "status=success" >> $GITHUB_OUTPUT
 
